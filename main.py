@@ -18,7 +18,7 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 
-BOT_TOKEN = os.getenv("8113755100:AAH47MpCeohXgqRl3sSM13LmaChEalXE0Ag") or "YOUR_BOT_TOKEN"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "8113755100:AAH47MpCeohXgqRl3sSM13LmaChEalXE0Ag"
 SCREENSHOT_API = "https://image.thum.io/get/png/fullpage/viewportWidth/2400/"
 TIKTOK_API = "https://api.tiklydown.eu.org/api/download"
 
