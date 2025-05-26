@@ -18,7 +18,7 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "8113755100:AAFqkMhMYl2V_fgBQn30wm8N44lARpDcMn4"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "YOUR_BOT_TOKEN"
 SCREENSHOT_API = "https://image.thum.io/get/png/fullpage/viewportWidth/2400/"
 TIKTOK_API = "https://api.tiklydown.eu.org/api/download"
 
@@ -36,6 +36,7 @@ class hencet_goreng:
         self.app.add_handler(CommandHandler("tiktok", self.tiktok_downloader))
         self.app.add_handler(CommandHandler("runtime", self.runtime_command))
         self.app.add_handler(CommandHandler("play", self.play_music))
+        self.app.add_handler(CommandHandler("mdfrdl", self.mediafire_downloader))
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
@@ -44,6 +45,7 @@ class hencet_goreng:
             [InlineKeyboardButton("Screenshot Web", callback_data="ssweb")],
             [InlineKeyboardButton("Remini", callback_data="remini")],
             [InlineKeyboardButton("TikTok Downloader", callback_data="tiktok")],
+            [InlineKeyboardButton("MediaFire Downloader", callback_data="mdfrdl")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Pilih menu:", reply_markup=reply_markup)
@@ -51,7 +53,6 @@ class hencet_goreng:
     async def handle_button_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-
         command = query.data
         if command == "runtime":
             await self.runtime_command(update, context)
@@ -63,6 +64,8 @@ class hencet_goreng:
             await query.edit_message_text("Balas gambar dan ketik:\n`/remini`", parse_mode="Markdown")
         elif command == "tiktok":
             await query.edit_message_text("Masukkan URL TikTok dengan perintah:\n`/tiktok https://vm.tiktok.com/...`", parse_mode="Markdown")
+        elif command == "mdfrdl":
+            await query.edit_message_text("Masukkan URL MediaFire dengan perintah:\n`/mdfrdl https://www.mediafire.com/file/...`", parse_mode="Markdown")
 
     async def screenshot(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
@@ -107,23 +110,13 @@ class hencet_goreng:
     async def enhance_image(self, image_data: bytes) -> Optional[bytes]:
         try:
             url = "https://inferenceengine.vyro.ai/enhance"
-            headers = {
-                "User-Agent": "okhttp/4.9.3",
-                "Connection": "Keep-Alive",
-            }
+            headers = {"User-Agent": "okhttp/4.9.3", "Connection": "Keep-Alive"}
             form_data = aiohttp.FormData()
             form_data.add_field("model_version", "1")
-            form_data.add_field(
-                "image", 
-                image_data,
-                filename="image.jpg",
-                content_type="image/jpeg"
-            )
+            form_data.add_field("image", image_data, filename="image.jpg", content_type="image/jpeg")
             async with aiohttp.ClientSession(headers=headers) as session:
                 async with session.post(url, data=form_data) as resp:
-                    if resp.status == 200:
-                        return await resp.read()
-                    return None
+                    return await resp.read() if resp.status == 200 else None
         except Exception:
             return None
 
@@ -140,18 +133,11 @@ class hencet_goreng:
             if data.get('video', {}).get('noWatermark'):
                 video_url = data['video']['noWatermark']
                 caption = self._format_tiktok_caption(data)
-                await update.message.reply_video(
-                    video=video_url,
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
+                await update.message.reply_video(video=video_url, caption=caption, parse_mode="Markdown")
             else:
                 video_data = await self._alternative_tiktok_download(url)
                 if video_data:
-                    await update.message.reply_video(
-                        video=video_data['url'],
-                        caption=f"Judul: {video_data.get('title', 'Tidak diketahui')}"
-                    )
+                    await update.message.reply_video(video=video_data['url'], caption=f"Judul: {video_data.get('title')}")
                 else:
                     await update.message.reply_text('Gagal mendownload video TikTok')
         except Exception as e:
@@ -159,12 +145,12 @@ class hencet_goreng:
 
     def _format_tiktok_caption(self, data: dict) -> str:
         return f"""*TIKTOK DOWNLOADER*
-*Dari*: {data.get('author', {}).get('name', 'Tidak diketahui')} (@{data.get('author', {}).get('unique_id', 'Tidak diketahui')})
-*Like*: {data.get('stats', {}).get('likeCount', 'Tidak diketahui')}
-*Komentar*: {data.get('stats', {}).get('commentCount', 'Tidak diketahui')}
-*Share*: {data.get('stats', {}).get('shareCount', 'Tidak diketahui')}
-*Putaran*: {data.get('stats', {}).get('playCount', 'Tidak diketahui')}
-*Judul*: {data.get('title', 'Tidak diketahui')}"""
+*Dari*: {data.get('author', {}).get('name', '-') } (@{data.get('author', {}).get('unique_id', '-')})
+*Like*: {data.get('stats', {}).get('likeCount', '-') }
+*Komentar*: {data.get('stats', {}).get('commentCount', '-') }
+*Share*: {data.get('stats', {}).get('shareCount', '-') }
+*Putaran*: {data.get('stats', {}).get('playCount', '-') }
+*Judul*: {data.get('title', '-')}"""
 
     async def _alternative_tiktok_download(self, url: str) -> Optional[dict]:
         try:
@@ -192,10 +178,8 @@ class hencet_goreng:
         if not context.args:
             await update.message.reply_text('Masukkan judul lagu!\nContoh: /play Jakarta Hari Ini')
             return
-
         query = " ".join(context.args)
         await update.message.reply_text("Tunggu sebentar, mencari lagu...")
-
         try:
             async with aiohttp.ClientSession() as session:
                 api_url = f"https://api.nekorinn.my.id/downloader/spotifyplay?q={requests.utils.quote(query)}"
@@ -207,10 +191,8 @@ class hencet_goreng:
                     if not data.get("status"):
                         await update.message.reply_text('Lagu tidak ditemukan!')
                         return
-
                     metadata = data["result"]["metadata"]
                     download_url = data["result"]["downloadUrl"]
-
                     await update.message.reply_audio(
                         audio=download_url,
                         filename=f"{metadata.get('title', 'audio')}.mp3",
@@ -219,6 +201,30 @@ class hencet_goreng:
                         caption=f"*{metadata.get('title')}*\n{metadata.get('artist')} • {metadata.get('duration')}",
                         parse_mode="Markdown"
                     )
+        except Exception as e:
+            await update.message.reply_text(f'Error: {str(e)}')
+
+    async def mediafire_downloader(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not context.args:
+            await update.message.reply_text('Masukkan URL MediaFire\nContoh: /mdfrdl https://www.mediafire.com/file/...')
+            return
+        url = context.args[0]
+        try:
+            await update.message.reply_chat_action("upload_document")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        await update.message.reply_text('Gagal mengambil halaman MediaFire.')
+                        return
+                    html = await resp.text()
+            soup = BeautifulSoup(html, "html.parser")
+            button = soup.find("a", {"id": "downloadButton"})
+            if not button:
+                await update.message.reply_text("Gagal menemukan tautan unduhan.")
+                return
+            file_url = button["href"]
+            file_name = button.text.strip()
+            await update.message.reply_document(document=file_url, filename=file_name)
         except Exception as e:
             await update.message.reply_text(f'Error: {str(e)}')
 
